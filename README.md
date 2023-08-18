@@ -1,14 +1,5 @@
 # NYCU-LLaMA
 
-<style>
-    .center {
-        display: block;
-        margin-left: auto;
-        margin-right: auto;
-        width: 50%;
-    }
-</style>
-
 <center>
     <img src="./image/nyu_llama-removebg-preview.png">
 </center>
