@@ -8,9 +8,7 @@ import torch.nn.functional as F
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 mse_loss=nn.MSELoss()
 
-lam=25
-mu=25
-nu=1
+
 
 update_step=1
 
