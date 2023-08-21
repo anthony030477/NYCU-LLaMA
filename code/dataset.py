@@ -26,22 +26,22 @@ def trainDataset(path='data/'):
 
 def collect_fn(batch):
     '''
+    input: question,answer
     return:torch.tensor(token_id) batchxseq_len 
     '''
     # bodys,titles=zip(*batch)
     input_list=[]
     
-    label_list=[]
-    mask_list=[]
+  
     tokenizer =RobertaTokenizer.from_pretrained("roberta-base")
-    for premise,hypothesis ,label in batch:
-        text='Premise: '+premise+'Hypothesis: '+hypothesis
+    for question,answer  in batch:
+        text='Question: '+question+'Answer: '+answer
         input_list.append(text)
-        label_list.append(label)
+        
    
     output=tokenizer(text=input_list,return_tensors="pt",padding=True,truncation=True,max_length=512)
     
-    return output.input_ids , output.attention_mask , label_list
+    return output.input_ids , output.attention_mask 
 
 
 def collect_fn_llama(batch):
