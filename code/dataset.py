@@ -6,51 +6,21 @@ from torch.utils.data import DataLoader
 from transformers import RobertaTokenizer, RobertaModel
 from transformers import LlamaTokenizer, LlamaForCausalLM
 
-class trainDataset(Dataset):
-    def __init__(self,sub_glue='wnli'):
-        self.dataset = load_dataset("glue", sub_glue)
-    def __len__(self):
-        return len(self.dataset['train'])
+def trainDataset(path='data/'):
+    dataframes=[]
 
-    def __getitem__(self, idx):
-        premise=self.dataset['train'][idx]['sentence1']
-        hypothesis=self.dataset['train'][idx]['sentence2']
-        label=self.dataset['train'][idx]['label']
-        return premise,hypothesis ,label
+    for data in os.listdir(path):
+        files_ls=os.listdir(path+'/'+data+'/'+'1120802')
+        for files in files_ls:
+            if 'QA' in files:
+                dataframes.append(pd.read_excel(path+'/'+data+'/'+'1120802'+'/'+files))
     
-class trainDataset_QA(Dataset):
-    def __init__(self,):
-        self.dataset = load_dataset("trivia_qa",'rc')
-    def __len__(self):
-        return len(self.dataset['train'])
-
-    def __getitem__(self, idx):
-        question=self.dataset['train'][idx]['question']
-        # print(self.dataset['train'][idx].keys())
-        answer=self.dataset['train'][idx]['answer']['value']
-        return question,answer
-    
-class trainDataset_NEWS(Dataset):
-    def __init__(self,):
-        self.dataset= load_dataset("zeroshot/twitter-financial-news-sentiment")
-    def __len__(self):
-        return len(self.dataset['train'])
-    def __getitem__(self, idx):
-        text=self.dataset['train'][idx]['text']
-        label=self.dataset['train'][idx]['label']
-        return text,label
-
-
-class testDataset_NEWS(Dataset):
-    def __init__(self,):
-        self.dataset= load_dataset("zeroshot/twitter-financial-news-sentiment")
-    def __len__(self):
-        return len(self.dataset['validation'])
-    def __getitem__(self, idx):
-        text=self.dataset['validation'][idx]['text']
-        label=self.dataset['validation'][idx]['label']
-        return text,label
-
+    dataset=[]
+    for dataframe in dataframes:
+        Q=dataframe["問題"].tolist()
+        A=dataframe["回答內容"].tolist()
+        dataset.extend(zip(Q,A))
+    return dataset
 
 def collect_fn(batch):
     '''
@@ -70,24 +40,7 @@ def collect_fn(batch):
     output=tokenizer(text=input_list,return_tensors="pt",padding=True,truncation=True,max_length=512)
     
     return output.input_ids , output.attention_mask , label_list
-def collect_fn_news(batch):
-    '''
-    return:torch.tensor(token_id) batchxseq_len 
-    '''
-    # bodys,titles=zip(*batch)
-    input_list=[]
-    
-    label_list=[]
-    mask_list=[]
-    tokenizer =RobertaTokenizer.from_pretrained("roberta-base")
-    for text,label in batch:
-        text='News: '+text+'Sentiment: '
-        input_list.append(text)
-        label_list.append(label)
-   
-    output=tokenizer(text=input_list,return_tensors="pt",padding=True,truncation=True,max_length=512)
-    labels=torch.tensor(label_list)
-    return output.input_ids , output.attention_mask , labels,input_list
+
 
 def collect_fn_llama(batch):
     '''
@@ -127,9 +80,9 @@ def collect_fn_llama(batch):
 
 
 if __name__=='__main__':
-    dataset=trainDataset_QA()
+    dataset=trainDataset()
     print(dataset[0])
-    train_dataloader = DataLoader(dataset, batch_size=4, shuffle=True,collate_fn=collect_fn_llama)
+    train_dataloader = DataLoader(dataset, batch_size=4, shuffle=True,collate_fn=collect_fn)
     for ids,masks ,labels,_ in train_dataloader:
         print(ids.shape)
         # print(ids)
