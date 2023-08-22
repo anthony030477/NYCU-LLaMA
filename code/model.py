@@ -6,8 +6,7 @@ from transformers import RobertaTokenizer, RobertaModel
 @torch.no_grad()
 def momentum_update(src:nn.Module, dst:nn.Module, factor=0.01):
     for s, d in zip(src.parameters(), dst.parameters()):
-        d = (1-factor)*d + factor*s
-
+        d.data = (1-factor)*d.data + factor*s.data
 
 class Roberta(torch.nn.Module):
     def __init__(self, out_dim=2048):
