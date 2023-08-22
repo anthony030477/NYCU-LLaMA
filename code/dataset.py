@@ -54,7 +54,7 @@ class collect_fn:
         rand = torch.rand(ids_b.shape)
         ids_b[rand<self.drop] = self.tokenizer.mask_token_id
 
-        return ids_a, ids_b, output.attention_mask
+        return ids_a, ids_b, output.attention_mask,input_list
 
 
 def collect_fn_llama(batch):

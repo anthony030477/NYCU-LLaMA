@@ -18,7 +18,7 @@ def trainer(epoch, model_on:nn.Module, model_off:nn.Module):
     model_on.train()
     model_off.eval()
     counter=0
-    for ids_a, ids_b, input_masks in (bar:=tqdm(train_dataloader,ncols=0)):
+    for ids_a, ids_b, input_masks,_ in (bar:=tqdm(train_dataloader,ncols=0)):
         loss=0
         bs=ids_a.shape[0]
         optimizer.zero_grad()
