@@ -1,15 +1,21 @@
 import torch
 from transformers import LlamaTokenizer, LlamaForCausalLM
 from transformers import pipeline
-model_path = 'openlm-research/open_llama_3b_v2'
-# model_path = 'openlm-research/open_llama_7b'#VRAM不夠
+
+# change this to the path of the Taiwan-LLAMA model
+model_path = ''
 
 tokenizer = LlamaTokenizer.from_pretrained(model_path)
 model = LlamaForCausalLM.from_pretrained(
     model_path, torch_dtype=torch.float16, device_map='auto',
 )
-demonstration='Review: Delicious food! Sentiment: Postive\nReview: The food is awful. Sentiment: Negative\nReview: I ordered a steak, but it was overcooked and had a terrible texture. Sentiment: Negative\n'
-prompt = [demonstration+'Review: The food at this restaurant is absolutely delicious! Every bite is a burst of flavor. Sentiment:',demonstration+'Review: This smoothie is a taste of summer heaven! The fresh mango flavor is rich and combined with the icy texture, it is incredibly refreshing and delightful. Sentiment:']
+
+demonstration='問題: 要去哪裡看學校的行事曆，要是有問題要問誰?\n回答內容: 學校的行事曆放在學校網頁首頁，右下方白色區域，行事曆負責單位為教務處處本部，本校行事曆皆通過行政會議及教育部核備。 問題: 什麼時候放暑假或是寒假?\n回答內容: 行事曆自112學年度起有標註暑假、寒假開始的日期。\n'
+
+query = '問題:' + '' + '回答內容:'
+
+prompt = [demonstration + query]
+
 # prompt = ["Hey, are you conscious? Can you talk to me?","please say a story"]
 # input_ids = tokenizer(prompt, return_tensors="pt").input_ids
 
