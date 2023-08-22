@@ -1,3 +1,4 @@
+from typing import Any
 import torch
 from torch.utils.data import Dataset
 from datasets import load_dataset
@@ -16,7 +17,7 @@ def trainDataset(path='data/'):
         for files in files_ls:
             if 'QA' in files:
                 dataframes.append(pd.read_excel(path+'/'+data+'/'+'1120802'+'/'+files))
-    
+
     dataset=[]
     for dataframe in dataframes:
         Q=dataframe["問題"].tolist()
@@ -24,30 +25,38 @@ def trainDataset(path='data/'):
         dataset.extend(zip(Q,A))
     return dataset
 
-def collect_fn(batch):
-    '''
-    input: question,answer
-    return:torch.tensor(token_id) batchxseq_len 
-    '''
-    # bodys,titles=zip(*batch)
-    input_list=[]
-    
-  
-    tokenizer =RobertaTokenizer.from_pretrained("roberta-base")
-    for question,answer  in batch:
-        text='Question: '+question+'Answer: '+answer
-        input_list.append(text)
-        
-   
-    output=tokenizer(text=input_list,return_tensors="pt",padding=True,truncation=True,max_length=512)
-    
-    return output.input_ids , output.attention_mask 
+
+class collect_fn:
+    def __init__(self, max_len=512, drop=0.1):
+        self.max_len=max_len
+        self.drop = drop
+        self.tokenizer =RobertaTokenizer.from_pretrained("roberta-base")
+    def __call__(self, batch):
+        '''
+        input: question,answer
+        return:torch.tensor(token_id) batchxseq_len
+        '''
+        # bodys,titles=zip(*batch)
+        input_list=[]
+
+
+        for question,answer  in batch:
+            if type(question)==str and type(answer)==str:
+                text='Question: '+question+'Answer: '+answer
+                input_list.append(text)
+
+        output=self.tokenizer (text=input_list,return_tensors="pt",padding=True,truncation=True,max_length=self.max_len)
+
+        ids= output.input_ids
+        rand=torch.rand(ids.shape)
+        ids[rand<self.drop] = self.tokenizer.mask_token_id
+        return output.input_ids , output.attention_mask
 
 
 def collect_fn_llama(batch):
     '''
     batch: question,answer
-    return:torch.tensor(token_id) batchxseq_len 
+    return:torch.tensor(token_id) batchxseq_len
     '''
     # bodys,titles=zip(*batch)
     max_p_len=int(512*0.7)
@@ -62,11 +71,11 @@ def collect_fn_llama(batch):
         #print(p_out.input_ids.shape)#(1, len)
 
         p_ids =torch.cat([p_out['input_ids'][0],torch.tensor([tokenizer.eos_token_id])])
-        
+
         p_mask=torch.ones_like(p_ids)
 
         c_ids =torch.cat([c_out['input_ids'][0],torch.tensor([tokenizer.eos_token_id])])[1:]
-       
+
         c_mask=torch.ones_like(c_ids)
 
         ids=torch.cat([p_ids,c_ids])
@@ -84,12 +93,8 @@ def collect_fn_llama(batch):
 if __name__=='__main__':
     dataset=trainDataset()
     print(dataset[0])
-    train_dataloader = DataLoader(dataset, batch_size=4, shuffle=True,collate_fn=collect_fn)
-    for ids,masks ,labels,_ in train_dataloader:
+    train_dataloader = DataLoader(dataset, batch_size=4, shuffle=True,collate_fn=collect_fn())
+    for ids,masks in train_dataloader:
         print(ids.shape)
-        # print(ids)
-        print(labels.shape)
-        # print(labels)
         print(masks.shape)
-        # print(masks)
         exit()

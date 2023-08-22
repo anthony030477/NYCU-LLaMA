@@ -1,7 +1,7 @@
 import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from dataset import trainDataset,collect_fn,trainDataset_NEWS,collect_fn_news
+from dataset import trainDataset,collect_fn
 from model import Roberta, momentum_update
 import torch.nn as nn
 import torch.nn.functional as F
@@ -18,10 +18,9 @@ def trainer(epoch, model_on:nn.Module, model_off:nn.Module):
     model_on.train()
     model_off.eval()
     counter=0
-    for input_ids,input_masks ,labels,_ in (bar:=tqdm(train_dataloader,ncols=0)):
+    for input_ids,input_masks in (bar:=tqdm(train_dataloader,ncols=0)):
         counter+=1
         input_ids=input_ids.to(device)
-        labels=labels.to(device)
         input_masks=input_masks.to(device)
 
         optimizer.zero_grad()
@@ -49,9 +48,9 @@ def trainer(epoch, model_on:nn.Module, model_off:nn.Module):
     lr_scher.step()
 
 if __name__=='__main__':
-    dataset=trainDataset_NEWS()
+    dataset=trainDataset()
 
-    train_dataloader = DataLoader(dataset, batch_size=32, shuffle=True,collate_fn=collect_fn_news)
+    train_dataloader = DataLoader(dataset, batch_size=8, shuffle=True,collate_fn=collect_fn())
     model_on=Roberta()
     model_off=Roberta()
     model_on.to(device)
@@ -63,5 +62,5 @@ if __name__=='__main__':
     lr_scher=torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.2, patience=10, cooldown=20, min_lr=1e-6)
 
     for i in range(num_epochs):
-        trainer(i)
+        trainer(i, model_on, model_off)
     torch.save(model_on.state_dict(),'save/save.pt')
