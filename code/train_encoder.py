@@ -80,4 +80,6 @@ if __name__=='__main__':
 
     for i in range(num_epochs):
         trainer(i, model_on, model_off)
+        if (i+1)%10==0:
+            torch.save(model_on.state_dict(),f'save/save_{i:03d}.pt')
     torch.save(model_on.state_dict(),'save/save.pt')
