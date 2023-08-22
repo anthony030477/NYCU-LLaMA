@@ -47,10 +47,14 @@ class collect_fn:
 
         output=self.tokenizer (text=input_list,return_tensors="pt",padding=True,truncation=True,max_length=self.max_len)
 
-        ids= output.input_ids
-        rand=torch.rand(ids.shape)
-        ids[rand<self.drop] = self.tokenizer.mask_token_id
-        return output.input_ids , output.attention_mask
+        ids_a= output.input_ids
+        rand=torch.rand(ids_a.shape)
+        ids_a[rand<self.drop] = self.tokenizer.mask_token_id
+        ids_b = output.input_ids
+        rand = torch.rand(ids_b.shape)
+        ids_b[rand<self.drop] = self.tokenizer.mask_token_id
+
+        return ids_a, ids_b, output.attention_mask
 
 
 def collect_fn_llama(batch):

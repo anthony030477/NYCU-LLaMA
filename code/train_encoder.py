@@ -18,19 +18,23 @@ def trainer(epoch, model_on:nn.Module, model_off:nn.Module):
     model_on.train()
     model_off.eval()
     counter=0
-    for input_ids,input_masks in (bar:=tqdm(train_dataloader,ncols=0)):
+    for ids_a, ids_b, input_masks in (bar:=tqdm(train_dataloader,ncols=0)):
         counter+=1
-        input_ids=input_ids.to(device)
+        ids_a=ids_a.to(device)
+        ids_b=ids_b.to(device)
         input_masks=input_masks.to(device)
 
         optimizer.zero_grad()
-        z_on, q_on = model_on(input_ids,input_masks)
+        z_on, q_on = model_on(ids_a,input_masks)
         with torch.no_grad():
-            z_off, q_off = model_off(input_ids,input_masks)
+            z_off, q_off = model_off(ids_b,input_masks)
         del z_on, q_off     #delete online latent and offline prediction
 
 
         # MSE of online prediction and offline latent
+        q_on=F.normalize(q_on)
+        z_off=F.normalize(z_off)
+        print(q_on , z_off )
         loss = torch.mean(( q_on - z_off )**2)
 
         loss.backward()
@@ -42,15 +46,15 @@ def trainer(epoch, model_on:nn.Module, model_off:nn.Module):
         # log
         if losses==0:
             losses = loss.item()
-        losses=0.98*losses+0.02*loss.item()
+        losses=0.96*losses+0.04*loss.item()
         bar.set_description(f'epoch[{i+1:3d}/{num_epochs}]|Training')
         bar.set_postfix_str(f'loss {losses:.4f}')
-    lr_scher.step()
+    lr_scher.step(losses)
 
 if __name__=='__main__':
     dataset=trainDataset()
 
-    train_dataloader = DataLoader(dataset, batch_size=8, shuffle=True,collate_fn=collect_fn())
+    train_dataloader = DataLoader(dataset, batch_size=8, shuffle=True,collate_fn=collect_fn(drop=0.2))
     model_on=Roberta()
     model_off=Roberta()
     model_on.to(device)
