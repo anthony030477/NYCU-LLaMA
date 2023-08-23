@@ -27,9 +27,10 @@ def trainDataset(path='data/'):
 
 
 class collect_fn:
-    def __init__(self, max_len=512, drop=0.1):
+    def __init__(self, max_len=512, drop=0.1, only_Q_ratio=0.3):
         self.max_len=max_len
         self.drop = drop
+        self.only_Q_ratio=only_Q_ratio
         self.tokenizer =RobertaTokenizer.from_pretrained("roberta-base")
     def __call__(self, batch):
         '''
@@ -39,11 +40,19 @@ class collect_fn:
         # bodys,titles=zip(*batch)
         input_list=[]
 
-
-        for question,answer  in batch:
-            if type(question)==str and type(answer)==str:
-                text='Question: '+question+'Answer: '+answer
+        onlyQ=torch.rand(1)<self.only_Q_ratio
+        for QA in batch:
+            if type(QA)==tuple or type(QA)==tuple:
+                question, answer=QA
+                if type(question)==str and type(answer)==str:
+                    text='Question: '+question
+                    if not onlyQ:
+                        text +='Answer: '+answer
+                    input_list.append(text)
+            else:
+                text='Question: '+QA
                 input_list.append(text)
+
 
         output=self.tokenizer (text=input_list,return_tensors="pt",padding=True,truncation=True,max_length=self.max_len)
 
@@ -54,7 +63,7 @@ class collect_fn:
         rand = torch.rand(ids_b.shape)
         ids_b[rand<self.drop] = self.tokenizer.mask_token_id
 
-        return ids_a, ids_b, output.attention_mask
+        return ids_a, ids_b, output.attention_mask,input_list
 
 
 def collect_fn_llama(batch):

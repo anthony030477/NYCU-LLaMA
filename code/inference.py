@@ -1,71 +1,76 @@
 import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from dataset import trainDataset,collect_fn,trainDataset_NEWS,collect_fn_news,testDataset_NEWS
+from dataset import trainDataset,collect_fn
 from model import Roberta
 import numpy as np
-
+from utils import cosine_similarity
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
+
 @torch.inference_mode()
-def featurer(feature_list,text_list):
+def featurer(dataset):
 
     '''
     text_input: text list
     return: feature list
     '''
-    model.eval()
-    for input_ids,input_masks ,labels,text in (bar:=tqdm(train_dataloader,ncols=0)):
-        input_ids=input_ids.to(device)
-        labels=labels.to(device)
-        input_masks=input_masks.to(device)
-
-        feature,_  = model(input_ids,input_masks)#batchsizex768
-        for item in range(input_ids.shape[0]):
-            feature_list.append(feature[item].cpu().numpy())
-            text_list.append(text[item])
-
-
-
-if __name__=='__main__':
-    dataset=trainDataset_NEWS()
-
-    train_dataloader = DataLoader(dataset, batch_size=32, shuffle=False,collate_fn=collect_fn_news)
-    model=Roberta()
-    model.load_state_dict(torch.load('/home/anthony/work/save/save_26.1.pt'))
-    model.to(device)
     feature_list=[]
     text_list=[]
-    # featurer(feature_list,text_list)
-    dataset=testDataset_NEWS()
-    test_dataloader = DataLoader(dataset, batch_size=1, shuffle=False,collate_fn=collect_fn_news)
+    model.eval()
 
-    haha = torch.load('/home/anthony/work/feature.pt')
-    ha = torch.stack([torch.from_numpy(val) for val in haha['feature']])
+    dataloader = DataLoader(dataset, batch_size=32, shuffle=False,collate_fn=collect_fn(drop=0, only_Q_ratio=1))
+    for ids_a, _, input_masks,text in (bar:=tqdm(dataloader,ncols=0)):
+        ids_a=ids_a.to(device)
+        input_masks=input_masks.to(device)
 
-    for input_ids,input_masks ,labels,text in test_dataloader:
-        with torch.no_grad():
-            fe, _ = model(input_ids.cuda(),input_masks.cuda())
-            print(labels)
-            print(text)
-            break
+        feature,_  = model(ids_a,input_masks)#(bs, d)
+        feature_list.append(feature)
+        text_list.extend(text)
 
-    hahaha = ha.cuda() @ fe.T
+    feature_list=torch.cat(feature_list)
 
-    xxxx = torch.topk(hahaha.squeeze(), 5)
-
-    print(xxxx)
-
-    print('retrive text')
-
-    for i in xxxx.indices:
-        print(haha['text'][i])
-        print(haha['label'][i])
 
     '''
     save feature and text
     '''
 
-    # torch.save({'feature': feature_list, 'text': text_list}, 'feature.pt')
+    data_dict = {
+    'feature': feature_list,
+    'text': text_list
+    }
+    torch.save(data_dict, 'save/feature.pt')
+    print("saved~~")
 
-    print('finish!')
+
+if __name__=='__main__':
+    dataset=trainDataset()
+
+    model=Roberta()
+    model.load_state_dict(torch.load('save/save_010.pt'))
+    model.to(device)
+    # compute latent and save
+    # featurer(dataset)
+
+    dataset=['共學之上課方式為何?']
+    test_dataloader = DataLoader(dataset, batch_size=1, shuffle=False,collate_fn=collect_fn(drop=0))
+
+    feature_text = torch.load('save/feature.pt')
+    feature = feature_text['feature'].to(device)
+
+    for input_ids,_, input_masks ,text in test_dataloader:
+        with torch.no_grad():
+            test_feature, _ = model(input_ids.to(device),input_masks.to(device))
+
+            break
+
+    sim = cosine_similarity(test_feature, feature)
+    nearst_feature = torch.topk(sim, 5, dim=1)
+
+
+    print('retrive text')
+
+    for i in nearst_feature.indices:
+        for j in i:
+            print(feature_text['text'][j])
+
