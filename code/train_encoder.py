@@ -5,7 +5,7 @@ from dataset import trainDataset,collect_fn
 from model import Roberta, momentum_update
 import torch.nn as nn
 import torch.nn.functional as F
-from utils import cosine_similarity
+from utils import cosine_similarity, simCLR_loss
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 mse_loss=nn.MSELoss()
 
@@ -38,7 +38,7 @@ def trainer(epoch, model_on:nn.Module, model_off:nn.Module):
         # MSE of online prediction and offline latent
         q_on=F.normalize(q_on)
         z_off=F.normalize(z_off)
-        loss = torch.mean((( q_on - z_off )**2).sum(dim=1))
+        loss += torch.mean((( q_on - z_off )**2).sum(dim=1)) + 0.1*simCLR_loss(q_on, z_off)
 
         z_on, q_on = model_on(ids_b,input_masks)
         with torch.no_grad():
@@ -47,9 +47,10 @@ def trainer(epoch, model_on:nn.Module, model_off:nn.Module):
 
         # loss += 2-2*((q_on*z_off).sum(dim=1)/(torch.norm(q_on, dim=1)*torch.norm(z_off, dim=1))).mean()
         # MSE of online prediction and offline latent
+        z_on=F.normalize(z_on)
         q_on=F.normalize(q_on)
         z_off=F.normalize(z_off)
-        loss += torch.mean((( q_on - z_off )**2).sum(dim=1))
+        loss += torch.mean((( q_on - z_off )**2).sum(dim=1)) + 0.1*simCLR_loss(q_on, z_off)
 
 
         loss.backward()
@@ -80,13 +81,13 @@ def trainer(epoch, model_on:nn.Module, model_off:nn.Module):
 if __name__=='__main__':
     dataset=trainDataset()
 
-    train_dataloader = DataLoader(dataset, batch_size=8, shuffle=True,collate_fn=collect_fn(drop=0.2, only_Q_ratio=1), drop_last=True)
+    train_dataloader = DataLoader(dataset, batch_size=8, shuffle=True,collate_fn=collect_fn(drop=0.2, only_Q_ratio=0.5), drop_last=True)
     model_on=Roberta()
     model_off=Roberta()
     model_on.to(device)
     model_off.to(device)
 
-    model_on.load_state_dict(torch.load('save/save.pt', 'cpu'))
+    # model_on.load_state_dict(torch.load('save/save.pt', 'cpu'))
 
     momentum_update(model_on, model_off, 1) #full copy online to offline
     optimizer = torch.optim.AdamW(model_on.parameters(), lr=1e-5, weight_decay=1e-2)

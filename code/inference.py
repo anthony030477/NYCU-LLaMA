@@ -28,6 +28,17 @@ def featurer(dataset):
         feature_list.append(feature)
         text_list.extend(text)
 
+        with torch.no_grad():
+            sim=cosine_similarity(feature,feature)
+
+        all_sim=0
+        for i in range(32):
+            self_sim = sim[i, i]
+            other = sim[i, 0]
+            all_sim += self_sim-other
+        all_sim/=32
+        print(all_sim)
+
     feature_list=torch.cat(feature_list)
 
 
@@ -50,7 +61,7 @@ if __name__=='__main__':
     model.load_state_dict(torch.load('save/save_010.pt'))
     model.to(device)
     # compute latent and save
-    # featurer(dataset)
+    featurer(dataset)
 
     dataset=['共學之上課方式為何?']
     test_dataloader = DataLoader(dataset, batch_size=1, shuffle=False,collate_fn=collect_fn(drop=0))
@@ -64,13 +75,15 @@ if __name__=='__main__':
 
             break
 
+
     sim = cosine_similarity(test_feature, feature)
-    nearst_feature = torch.topk(sim, 5, dim=1)
+    print(sim)
+    vs, ids = torch.topk(sim, 500, dim=1, largest=False)
 
 
     print('retrive text')
 
-    for i in nearst_feature.indices:
-        for j in i:
-            print(feature_text['text'][j])
+    for v, index in  zip(vs, ids):
+        for j in zip(v, index):
+            print(feature_text['text'][j[1]], j[0].item())
 

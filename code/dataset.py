@@ -56,10 +56,12 @@ class collect_fn:
 
         output=self.tokenizer (text=input_list,return_tensors="pt",padding=True,truncation=True,max_length=self.max_len)
 
-        ids_a= output.input_ids
+
+        # need clone
+        ids_a= output.input_ids.clone()
         rand=torch.rand(ids_a.shape)
         ids_a[rand<self.drop] = self.tokenizer.mask_token_id
-        ids_b = output.input_ids
+        ids_b = output.input_ids.clone()
         rand = torch.rand(ids_b.shape)
         ids_b[rand<self.drop] = self.tokenizer.mask_token_id
 
