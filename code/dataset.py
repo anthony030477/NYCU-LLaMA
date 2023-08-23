@@ -57,7 +57,7 @@ class collect_fn:
         output=self.tokenizer (text=input_list,return_tensors="pt",padding=True,truncation=True,max_length=self.max_len)
 
 
-        # need clone
+        # apply random mask token
         ids_a= output.input_ids.clone()
         rand=torch.rand(ids_a.shape)
         ids_a[rand<self.drop] = self.tokenizer.mask_token_id

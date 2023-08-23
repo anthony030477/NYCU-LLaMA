@@ -5,7 +5,7 @@ from dataset import trainDataset,collect_fn
 from model import Roberta, momentum_update
 import torch.nn as nn
 import torch.nn.functional as F
-from utils import cosine_similarity, simCLR_loss
+from utils import cos_sim, simCLR_loss, infonNCE_loss
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 mse_loss=nn.MSELoss()
 
@@ -13,7 +13,21 @@ mse_loss=nn.MSELoss()
 
 update_step=1
 
+class memory:
+    def __init__(self, size=2048) -> None:
+        self.size = size
+        self.latents = None
+    def get(self):
+        return self.latents
+    def add(self, latents:torch.Tensor):
+        latents=latents.detach()
+        if self.latents is None:
+            self.latents=latents
+        else:
+            self.latents = torch.cat([latents, self.latents], dim=0)
+            self.latents =  self.latents[:self.size]
 
+bank=memory(4096)
 def trainer(epoch, model_on:nn.Module, model_off:nn.Module):
     losses = 0
     model_on.train()
@@ -32,25 +46,15 @@ def trainer(epoch, model_on:nn.Module, model_off:nn.Module):
         z_on, q_on = model_on(ids_a,input_masks)
         with torch.no_grad():
             z_off, q_off = model_off(ids_b,input_masks)
-        # del z_on, q_off     #delete online latent and offline prediction
-
-        # loss += 2-2*((q_on*z_off).sum(dim=1)/(torch.norm(q_on, dim=1)*torch.norm(z_off, dim=1))).mean()
-        # MSE of online prediction and offline latent
-        q_on=F.normalize(q_on)
-        z_off=F.normalize(z_off)
-        loss += torch.mean((( q_on - z_off )**2).sum(dim=1)) + 0.1*simCLR_loss(q_on, z_off)
+        bank.add(z_off)
+        loss += infonNCE_loss(z_on, bank.get(), 0.1)
 
         z_on, q_on = model_on(ids_b,input_masks)
         with torch.no_grad():
             z_off, q_off = model_off(ids_a,input_masks)
-        # del z_on, q_off     #delete online latent and offline prediction
 
-        # loss += 2-2*((q_on*z_off).sum(dim=1)/(torch.norm(q_on, dim=1)*torch.norm(z_off, dim=1))).mean()
-        # MSE of online prediction and offline latent
-        z_on=F.normalize(z_on)
-        q_on=F.normalize(q_on)
-        z_off=F.normalize(z_off)
-        loss += torch.mean((( q_on - z_off )**2).sum(dim=1)) + 0.1*simCLR_loss(q_on, z_off)
+        bank.add(z_off)
+        loss += infonNCE_loss(z_on, bank.get(), 0.1)
 
 
         loss.backward()
@@ -62,7 +66,7 @@ def trainer(epoch, model_on:nn.Module, model_off:nn.Module):
 
         # calculate similarity of each sample
         with torch.no_grad():
-            sim=cosine_similarity(z_on,z_off)
+            sim=cos_sim(z_on,z_off)
 
         all_sim=0
         for i in range(bs):
@@ -87,11 +91,11 @@ if __name__=='__main__':
     model_on.to(device)
     model_off.to(device)
 
-    # model_on.load_state_dict(torch.load('save/save.pt', 'cpu'))
+    model_on.load_state_dict(torch.load('save/save_010.pt', 'cpu'))
 
     momentum_update(model_on, model_off, 1) #full copy online to offline
     optimizer = torch.optim.AdamW(model_on.parameters(), lr=1e-5, weight_decay=1e-2)
-    num_epochs=1000
+    num_epochs=100
     lr_scher=torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.2, patience=10, cooldown=20, min_lr=1e-6)
 
     for i in range(num_epochs):

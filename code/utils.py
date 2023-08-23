@@ -1,8 +1,18 @@
 import torch
 import torch.nn.functional as F
 
-def cosine_similarity(a:torch.Tensor, b:torch.Tensor):
+def cos_sim(a:torch.Tensor, b:torch.Tensor):
     return (a @ b.T)/(torch.norm(a,dim=1)[:,None]@torch.norm(b,dim=1)[None,:])
+
+
+def infonNCE_loss(
+    u: torch.Tensor,                               # [N, C]
+    v: torch.Tensor,                               # [N, C]
+    temperature: float = 0.5,
+):
+    sim=cos_sim(u,v)/temperature
+    return -torch.diagonal(torch.log_softmax(sim, dim=1)).mean()
+
 
 def simCLR_loss(
     u: torch.Tensor,                               # [N, C]

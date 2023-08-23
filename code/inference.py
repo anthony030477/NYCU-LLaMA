@@ -4,7 +4,7 @@ from tqdm import tqdm
 from dataset import trainDataset,collect_fn
 from model import Roberta
 import numpy as np
-from utils import cosine_similarity
+from utils import cos_sim
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
@@ -19,8 +19,9 @@ def featurer(dataset):
     text_list=[]
     model.eval()
 
-    dataloader = DataLoader(dataset, batch_size=32, shuffle=False,collate_fn=collect_fn(drop=0, only_Q_ratio=1))
+    dataloader = DataLoader(dataset, batch_size=32, shuffle=False,collate_fn=collect_fn(drop=0, only_Q_ratio=0))
     for ids_a, _, input_masks,text in (bar:=tqdm(dataloader,ncols=0)):
+        bs=ids_a.shape[0]
         ids_a=ids_a.to(device)
         input_masks=input_masks.to(device)
 
@@ -29,15 +30,15 @@ def featurer(dataset):
         text_list.extend(text)
 
         with torch.no_grad():
-            sim=cosine_similarity(feature,feature)
+            sim=cos_sim(feature,feature)
 
         all_sim=0
-        for i in range(32):
+        for i in range(bs):
             self_sim = sim[i, i]
             other = sim[i, 0]
             all_sim += self_sim-other
-        all_sim/=32
-        print(all_sim)
+        all_sim/=bs
+        # print(all_sim)
 
     feature_list=torch.cat(feature_list)
 
@@ -61,10 +62,10 @@ if __name__=='__main__':
     model.load_state_dict(torch.load('save/save_010.pt'))
     model.to(device)
     # compute latent and save
-    featurer(dataset)
+    # featurer(dataset)
 
-    dataset=['共學之上課方式為何?']
-    test_dataloader = DataLoader(dataset, batch_size=1, shuffle=False,collate_fn=collect_fn(drop=0))
+    dataset=['要怎麼搭公車從火車站到學校','電子報相關問題', 'e3網站的帳號','學生證掉了怎麼辦？']
+    test_dataloader = DataLoader(dataset, batch_size=100, shuffle=False,collate_fn=collect_fn(drop=0))
 
     feature_text = torch.load('save/feature.pt')
     feature = feature_text['feature'].to(device)
@@ -73,17 +74,18 @@ if __name__=='__main__':
         with torch.no_grad():
             test_feature, _ = model(input_ids.to(device),input_masks.to(device))
 
-            break
 
 
-    sim = cosine_similarity(test_feature, feature)
-    print(sim)
-    vs, ids = torch.topk(sim, 500, dim=1, largest=False)
+
+    sim = cos_sim(test_feature, feature)
+    vs, ids = torch.topk(sim, 5, dim=1, largest=True)
 
 
     print('retrive text')
 
     for v, index in  zip(vs, ids):
+        print('-'*50)
         for j in zip(v, index):
             print(feature_text['text'][j[1]], j[0].item())
+
 
