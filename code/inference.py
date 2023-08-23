@@ -9,6 +9,11 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 @torch.inference_mode()
 def featurer(feature_list,text_list):
+
+    '''
+    text_input: text list
+    return: feature list
+    '''
     model.eval()
     for input_ids,input_masks ,labels,text in (bar:=tqdm(train_dataloader,ncols=0)):
         input_ids=input_ids.to(device)
@@ -24,7 +29,7 @@ def featurer(feature_list,text_list):
 
 if __name__=='__main__':
     dataset=trainDataset_NEWS()
-    
+
     train_dataloader = DataLoader(dataset, batch_size=32, shuffle=False,collate_fn=collect_fn_news)
     model=Roberta()
     model.load_state_dict(torch.load('/home/anthony/work/save/save_26.1.pt'))
@@ -58,7 +63,7 @@ if __name__=='__main__':
         print(haha['label'][i])
 
     '''
-    save feature and text 
+    save feature and text
     '''
 
     # torch.save({'feature': feature_list, 'text': text_list}, 'feature.pt')
