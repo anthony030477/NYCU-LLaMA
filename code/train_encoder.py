@@ -91,7 +91,7 @@ if __name__=='__main__':
     model_on.to(device)
     model_off.to(device)
 
-    model_on.load_state_dict(torch.load('save/save_010.pt', 'cpu'))
+    model_on.load_state_dict(torch.load('save/save_030.pt', 'cpu'))
 
     momentum_update(model_on, model_off, 1) #full copy online to offline
     optimizer = torch.optim.AdamW(model_on.parameters(), lr=1e-5, weight_decay=1e-2)

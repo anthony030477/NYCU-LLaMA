@@ -59,12 +59,12 @@ if __name__=='__main__':
     dataset=trainDataset()
 
     model=Roberta()
-    model.load_state_dict(torch.load('save/save_010.pt'))
+    model.load_state_dict(torch.load('save/save_030.pt'))
     model.to(device)
     # compute latent and save
-    # featurer(dataset)
+    featurer(dataset)
 
-    dataset=['要怎麼搭公車從火車站到學校','電子報相關問題', 'e3網站的帳號','學生證掉了怎麼辦？']
+    dataset=['要怎麼搭公車從火車站到學校','電子報相關問題', '忘記e3網站的帳號密碼怎麼辦?','學生證掉了怎麼辦？','我在其他校區修課，有校車接駁嗎?']
     test_dataloader = DataLoader(dataset, batch_size=100, shuffle=False,collate_fn=collect_fn(drop=0))
 
     feature_text = torch.load('save/feature.pt')
