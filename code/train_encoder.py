@@ -31,7 +31,7 @@ def trainer(epoch, model_on:nn.Module, model_off:nn.Module):
     model_on.train()
     model_off.eval()
     counter=0
-    for ids_a, ids_b, mask_a,mask_b,text_a,taxt_b in (bar:=tqdm(train_dataloader,ncols=0)):
+    for ids_a, ids_b, mask_a, mask_b, text_a, taxt_b in (bar:=tqdm(train_dataloader,ncols=0)):
 
         loss=0
         bs=ids_a.shape[0]
@@ -47,14 +47,14 @@ def trainer(epoch, model_on:nn.Module, model_off:nn.Module):
         with torch.no_grad():
             z_off, q_off = model_off(ids_b, mask_b)
         bank.add(z_off)
-        loss += infonNCE_loss(z_on, bank.get(), 0.1)
+        loss += infonNCE_loss(z_on, bank.get(), 0.01)
 
         z_on, q_on = model_on(ids_b, mask_b)
         with torch.no_grad():
             z_off, q_off = model_off(ids_a, mask_a)
         del q_on
         bank.add(z_off)
-        loss += infonNCE_loss(z_on, bank.get(), 0.1)
+        loss += infonNCE_loss(z_on, bank.get(), 0.01)
 
 
         loss.backward()
@@ -85,7 +85,7 @@ def trainer(epoch, model_on:nn.Module, model_off:nn.Module):
 if __name__=='__main__':
     dataset=trainDataset()
 
-    train_dataloader = DataLoader(dataset, batch_size=8, shuffle=True,collate_fn=collect_fn(drop=0.2, only_Q_ratio=1), drop_last=True)
+    train_dataloader = DataLoader(dataset, batch_size=8, shuffle=True,collate_fn=collect_fn(drop=0.2, only_Q_ratio=0.5), drop_last=True)
     model_on=Roberta()
     model_off=Roberta()
     model_on.to(device)
@@ -95,10 +95,10 @@ if __name__=='__main__':
 
     momentum_update(model_on, model_off, 1) #full copy online to offline
 
-    bank=memory(4096)
+    bank=memory(8192)
     optimizer = torch.optim.AdamW(model_on.parameters(), lr=1e-5, weight_decay=1e-2)
-    num_epochs=20
-    lr_scher=torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.2, patience=10, cooldown=20, min_lr=1e-6)
+    num_epochs=50
+    lr_scher=torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.2, patience=10, cooldown=10, min_lr=1e-6)
 
     for i in range(num_epochs):
         trainer(i, model_on, model_off)

@@ -9,6 +9,8 @@ from transformers import LlamaTokenizer, LlamaForCausalLM
 import os
 import pandas as pd
 
+
+
 def trainDataset(path='data/'):
     dataframes=[]
 
@@ -56,35 +58,9 @@ class collect_fn:
 
 
             if text is not None:
-                #random mask word
-                n=len(text)
-                rand=torch.randint(10,n,size=[int(n*self.drop)])
-                rand=sorted(rand)
-                rand=[0]+rand
-                texts=''
-                for i in range(len(rand)-1):
-                    texts+=text[rand[i]:rand[i+1]-1]
-                    if i<len(rand)-2:
-                        texts+=self.tokenizer.mask_token
-                    if torch.rand(1)<self.drop:
-                        texts+=self.tokenizer.mask_token
 
-                input_list_a.append(text if torch.rand(1)<0.1 else texts)
-
-
-                n=len(text)
-                rand=torch.randint(10,n,size=[int(n*self.drop)])
-                rand=sorted(rand)
-                rand=[0]+rand
-                texts=''
-                for i in range(len(rand)-1):
-                    texts+=text[rand[i]:rand[i+1]-1]
-                    if i<len(rand)-2:
-                        texts+=self.tokenizer.mask_token
-                    if torch.rand(1)<self.drop:
-                        texts+=self.tokenizer.mask_token
-
-                input_list_b.append(text if torch.rand(1)<0.1 else texts)
+                input_list_a.append(text if torch.rand(1)<0.1 else self.text_aug(text))
+                input_list_b.append(text if torch.rand(1)<0.1 else self.text_aug(text))
 
 
 
@@ -92,50 +68,28 @@ class collect_fn:
         output_b=self.tokenizer (text=input_list_b,return_tensors="pt",padding=True,truncation=True,max_length=self.max_len)
 
 
-        # apply random mask token
-        ids_a= output_a.input_ids.clone()
-
+        ids_a = output_a.input_ids.clone()
         ids_b = output_b.input_ids.clone()
 
-        return ids_a, ids_b, output_a.attention_mask, output_b.attention_mask,  output_a, output_b
+        if self.drop==0:
+            return ids_a, output_a.attention_mask, input_list_a
 
+        return ids_a, ids_b, output_a.attention_mask, output_b.attention_mask,  input_list_a, input_list_b
 
-def collect_fn_llama(batch):
-    '''
-    batch: question,answer
-    return:torch.tensor(token_id) batchxseq_len
-    '''
-    # bodys,titles=zip(*batch)
-    max_p_len=int(512*0.7)
-    max_c_len=512-max_p_len
-    tokens=[]
-    masks=[]
-    targets=[]
-    tokenizer =LlamaTokenizer.from_pretrained("openlm-research/open_llama_3b_v2")
-    for p,c in batch:
-        p_out=tokenizer(p, return_tensors="pt", truncation=True, max_length=max_p_len-1)
-        c_out=tokenizer(c, return_tensors="pt", truncation=True, max_length=max_c_len)
-        #print(p_out.input_ids.shape)#(1, len)
-
-        p_ids =torch.cat([p_out['input_ids'][0],torch.tensor([tokenizer.eos_token_id])])
-
-        p_mask=torch.ones_like(p_ids)
-
-        c_ids =torch.cat([c_out['input_ids'][0],torch.tensor([tokenizer.eos_token_id])])[1:]
-
-        c_mask=torch.ones_like(c_ids)
-
-        ids=torch.cat([p_ids,c_ids])
-
-        tokens.append(ids)
-        masks.append(torch.cat([p_mask,c_mask]))
-        targets.append(torch.cat([torch.ones_like(p_ids)*-100, c_ids]))
-
-    tokens=pad_sequence(tokens, batch_first=True, padding_value=tokenizer.eos_token_id)
-    masks=pad_sequence(masks, batch_first=True)
-    targets=pad_sequence(targets, batch_first=True, padding_value=-100)
-    return tokens , masks , targets
-
+    def text_aug(self, text):
+        #random mask word
+        n=len(text)
+        rand=torch.randint(10,n,size=[int(n*self.drop)])
+        rand=sorted(rand)
+        rand=[0]+rand +[n]
+        texts=''
+        for i in range(len(rand)-1):
+            texts+=text[rand[i]:rand[i+1]-1]
+            if i<len(rand)-2 and torch.rand(1)<0.3:
+                texts+=self.tokenizer.mask_token
+            if torch.rand(1)<0.2:
+                texts+=self.tokenizer.mask_token*2
+        return texts
 
 if __name__=='__main__':
     dataset=trainDataset()

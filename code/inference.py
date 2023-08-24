@@ -20,7 +20,7 @@ def featurer(model, dataset):
     model.eval()
 
     dataloader = DataLoader(dataset, batch_size=32, shuffle=False,collate_fn=collect_fn(drop=0, only_Q_ratio=1))
-    for ids_a, _, input_masks,text in (bar:=tqdm(dataloader,ncols=0)):
+    for ids_a, input_masks, text in (bar:=tqdm(dataloader,ncols=0)):
         bs=ids_a.shape[0]
         ids_a=ids_a.to(device)
         input_masks=input_masks.to(device)
@@ -72,7 +72,7 @@ if __name__=='__main__':
     feature_text = torch.load('save/feature.pt')
     feature = feature_text['feature'].to(device)
 
-    for input_ids,_, input_masks ,text in test_dataloader:
+    for input_ids, input_masks ,text in test_dataloader:
         with torch.no_grad():
             test_feature, _ = model(input_ids.to(device),input_masks.to(device))
 
@@ -80,7 +80,7 @@ if __name__=='__main__':
 
 
     sim = cos_sim(test_feature, feature)
-    vs, ids = torch.topk(sim, 50, dim=1, largest=False)
+    vs, ids = torch.topk(sim, 5, dim=1, largest=True)
 
 
     print('retrive text')
