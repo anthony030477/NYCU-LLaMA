@@ -12,7 +12,6 @@ mse_loss=nn.MSELoss()
 
 
 update_step=1
-
 class memory:
     def __init__(self, size=2048) -> None:
         self.size = size
@@ -52,7 +51,7 @@ def trainer(epoch, model_on:nn.Module, model_off:nn.Module):
         z_on, q_on = model_on(ids_b,input_masks)
         with torch.no_grad():
             z_off, q_off = model_off(ids_a,input_masks)
-
+        del q_on
         bank.add(z_off)
         loss += infonNCE_loss(z_on, bank.get(), 0.1)
 
@@ -91,7 +90,7 @@ if __name__=='__main__':
     model_on.to(device)
     model_off.to(device)
 
-    model_on.load_state_dict(torch.load('save/save_030.pt', 'cpu'))
+    # model_on.load_state_dict(torch.load('save/save_080.pt', 'cpu'))
 
     momentum_update(model_on, model_off, 1) #full copy online to offline
     optimizer = torch.optim.AdamW(model_on.parameters(), lr=1e-5, weight_decay=1e-2)

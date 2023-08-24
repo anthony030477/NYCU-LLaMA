@@ -6,10 +6,13 @@ def cos_sim(a:torch.Tensor, b:torch.Tensor):
 
 
 def infonNCE_loss(
-    u: torch.Tensor,                               # [N, C]
-    v: torch.Tensor,                               # [N, C]
+    u: torch.Tensor,
+    v: torch.Tensor,
     temperature: float = 0.5,
 ):
+    '''
+    u:(N,d), v:(M,d), out:(N,M)
+    '''
     sim=cos_sim(u,v)/temperature
     return -torch.diagonal(torch.log_softmax(sim, dim=1)).mean()
 

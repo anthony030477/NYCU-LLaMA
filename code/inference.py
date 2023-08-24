@@ -19,7 +19,7 @@ def featurer(dataset):
     text_list=[]
     model.eval()
 
-    dataloader = DataLoader(dataset, batch_size=32, shuffle=False,collate_fn=collect_fn(drop=0, only_Q_ratio=0))
+    dataloader = DataLoader(dataset, batch_size=32, shuffle=False,collate_fn=collect_fn(drop=0, only_Q_ratio=1))
     for ids_a, _, input_masks,text in (bar:=tqdm(dataloader,ncols=0)):
         bs=ids_a.shape[0]
         ids_a=ids_a.to(device)
@@ -57,15 +57,14 @@ def featurer(dataset):
 
 if __name__=='__main__':
     dataset=trainDataset()
-
     model=Roberta()
-    model.load_state_dict(torch.load('save/save_030.pt'))
+    model.load_state_dict(torch.load('save/save_100.pt'))
     model.to(device)
     # compute latent and save
-    featurer(dataset)
+    # featurer(dataset)
 
-    dataset=['要怎麼搭公車從火車站到學校','電子報相關問題', '忘記e3網站的帳號密碼怎麼辦?','學生證掉了怎麼辦？','我在其他校區修課，有校車接駁嗎?']
-    test_dataloader = DataLoader(dataset, batch_size=100, shuffle=False,collate_fn=collect_fn(drop=0))
+    test_text=['要怎麼下載學校的軟體?','課外活動輔導組在哪裡?','請問我要怎麼申請就學貸款']
+    test_dataloader = DataLoader(test_text, batch_size=100, shuffle=False,collate_fn=collect_fn(drop=0))
 
     feature_text = torch.load('save/feature.pt')
     feature = feature_text['feature'].to(device)
@@ -86,6 +85,6 @@ if __name__=='__main__':
     for v, index in  zip(vs, ids):
         print('-'*50)
         for j in zip(v, index):
-            print(feature_text['text'][j[1]], j[0].item())
+            print('Q: ',dataset[j[1].item()][0], 'A:', dataset[j[1].item()][1] )#j[0].item()
 
 
