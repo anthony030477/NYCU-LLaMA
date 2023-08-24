@@ -13,11 +13,12 @@ class Roberta(torch.nn.Module):
         super(Roberta, self).__init__()
         self.model =  RobertaModel.from_pretrained("roberta-base")
         self.projecter = nn.Sequential(
-            nn.Linear(768, out_dim, bias=False),
-            # nn.LeakyReLU(),
-            # nn.Linear(1024, out_dim, bias=False)
+            nn.Dropout(),
+            nn.Linear(768, 1024, bias=True),
+            nn.LeakyReLU(),
+            nn.Linear(1024, out_dim, bias=False)
         )
-        self.projecter =nn.Linear(768, out_dim, bias=False)
+        # self.projecter =nn.Linear(768, out_dim, bias=False)
         self.predicter = nn.Linear(out_dim, out_dim, bias=False)
 
 

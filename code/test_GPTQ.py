@@ -1,7 +1,17 @@
 
 from transformers import AutoTokenizer,TextStreamer,TextIteratorStreamer
 from auto_gptq import AutoGPTQForCausalLM
+from dataset import trainDataset,collect_fn
+import torch
+from torch.utils.data import DataLoader
+from tqdm import tqdm
 
+from model import Roberta
+import numpy as np
+from utils import cos_sim
+from inference import featurer
+
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 class TaiwanLLaMaGPTQ:
     def __init__(self, model_dir):
@@ -24,15 +34,7 @@ class TaiwanLLaMaGPTQ:
             use_triton=True,
             strict=False)
         self.chat_history = []
-        self.system_prompt = '''Q:  要怎麼登入學校Email信箱收信? A: 學校提供的Email帳號是一個google帳號，直接在gmail登入頁面輸入完整帳號密碼後即可登入使用。
-Q:  要怎麼下載/安裝學校的授權軟體? A: 下載前需先安裝下載工具(FileZilla)，詳細說明請參考https://ca.nycu.edu.tw/download/。
-各軟體之安裝說明，請參考https://ca.nycu.edu.tw/installation/
-Q:  國科會計畫沒通過怎麼辦? A: 可以申請研發處協成型研究計畫，申請資格為本校專任教師及編制內研究人員，近3年內曾發表過論文(含會議論文)、學術專書或專書章節，且本年度申請國科會計畫未通過，且未有其他計畫經費。
-Q:  可以自己找實習機構嗎? A: 專業實習機構的選定，須符合學系所訂的篩選條件及經過評估後，送請實習委員會同意，同學可以建議學系評估。
-Q:  原陽明入口網忘記密碼怎麼辦? A: 1.點選忘記密碼，以留存E_Mail帳號修改密碼
- 2.本人來電至資訊中心分機 123詢問，核對身份將密碼設回預設值(有權限）
-  無重設帳號密碼權限人員，請使用者提供(1)學號/人事代號(2)證件(3)連絡電話，寄信到icc@nycu.edu.tw。確認身份後將協助重設。
-  。\n\n給定上述資訊，回答使用者的問題。如果上述資料不足以回答，說不知道。'''
+        self.system_prompt = ''
 
         self.streamer = TextStreamer(self.tokenizer, skip_prompt=True, skip_special_tokens=True)
         self.thread_streamer = TextIteratorStreamer(self.tokenizer, skip_special_tokens=True)
@@ -46,7 +48,7 @@ Q:  原陽明入口網忘記密碼怎麼辦? A: 1.點選忘記密碼，以留存
     def generate(self, message: str):
         prompt = self.get_prompt(message, self.chat_history)
         tokens = self.tokenizer(prompt, return_tensors='pt').input_ids
-        generate_ids = self.model.generate(input_ids=tokens.cuda(), streamer=None, **self.generate_config)
+        generate_ids = self.model.generate(input_ids=tokens.cuda(), streamer=self.streamer, **self.generate_config)
         output = self.tokenizer.decode(generate_ids[0, len(tokens[0]):-1]).strip()
         self.chat_history.append([message, output])
         return output
@@ -72,16 +74,48 @@ Q:  原陽明入口網忘記密碼怎麼辦? A: 1.點選忘記密碼，以留存
 
         thread.join()
 
-inferencer = TaiwanLLaMaGPTQ("weiren119/Taiwan-LLaMa-v1.0-4bits-GPTQ")
+
+if __name__=='__main__':
+    inferencer = TaiwanLLaMaGPTQ("weiren119/Taiwan-LLaMa-v1.0-4bits-GPTQ")
+
+    model=Roberta()
+    load=torch.load('/home/nycuLM/save/save.pt')
+    model.load_state_dict(load, strict=False)
+    model.to(device)
+    model.eval()
+    dataset=trainDataset()
+    feature = featurer(model, dataset)
+
+    s = ''
+    # test_text=['要怎麼下載學校的軟體?','課外活動輔導組在哪裡?','請問我要怎麼申請就學貸款']
 
 
-s = ''
-while True:
-    s = input("User: ")
-    if s != '':
-        # print ('Answer:')
-        # for t in inferencer.thread_generate(s):
-        #     print(t, end="")
-        print(inferencer.generate(s))
-        # print ('-'*80)
+    while True:
+        s = input("User: ")
+        test_dataloader = DataLoader([s], batch_size=100, shuffle=False,collate_fn=collect_fn(drop=0))
+
+
+        for input_ids,_, input_masks ,text in test_dataloader:
+            with torch.no_grad():
+                test_feature, _ = model(input_ids.to(device),input_masks.to(device))
+
+        sim = cos_sim(test_feature, feature)
+        vs, ids = torch.topk(sim, 5, dim=1, largest=True)
+
+
+        # print('-'*50)
+        inferencer.system_prompt=''
+        for j in zip(vs[0], ids[0]):
+            inferencer.system_prompt+=f'Q: {dataset[j[1].item()][0] } A: {dataset[j[1].item()][1]}\n'
+            # print('Q: ',dataset[j[1].item()][0], 'A:', dataset[j[1].item()][1] )#j[0].item()
+
+        inferencer.system_prompt+='''\n\nGiven the above information, answer the user's question. If the above information is not enough to answer, say you don't know. Don't show any link or phone number.'''
+
+        if s != '':
+            # print ('Answer:')
+            # for t in inferencer.thread_generate(s):
+            #     print(t, end="")
+            print(inferencer.system_prompt)
+            inferencer.generate(s)
+            # print ('-'*80)
 

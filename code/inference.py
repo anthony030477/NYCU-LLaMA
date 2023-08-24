@@ -9,7 +9,7 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
 @torch.inference_mode()
-def featurer(dataset):
+def featurer(model, dataset):
 
     '''
     text_input: text list
@@ -53,17 +53,20 @@ def featurer(dataset):
     }
     torch.save(data_dict, 'save/feature.pt')
     print("saved~~")
+    return feature_list
 
 
 if __name__=='__main__':
     dataset=trainDataset()
-    model=Roberta()
-    model.load_state_dict(torch.load('save/save_100.pt'))
-    model.to(device)
-    # compute latent and save
-    # featurer(dataset)
 
-    test_text=['要怎麼下載學校的軟體?','課外活動輔導組在哪裡?','請問我要怎麼申請就學貸款']
+    model=Roberta()
+    model.load_state_dict(torch.load('save/save.pt'))
+    model.to(device)
+    model.eval()
+    # compute latent and save
+    featurer(model, dataset)
+
+    test_text=['要怎麼下載學校的軟體?','課外活動輔導組在哪裡?','請問我要怎麼申請就學貸款','電子報相關問題']
     test_dataloader = DataLoader(test_text, batch_size=100, shuffle=False,collate_fn=collect_fn(drop=0))
 
     feature_text = torch.load('save/feature.pt')
@@ -77,7 +80,7 @@ if __name__=='__main__':
 
 
     sim = cos_sim(test_feature, feature)
-    vs, ids = torch.topk(sim, 5, dim=1, largest=True)
+    vs, ids = torch.topk(sim, 50, dim=1, largest=False)
 
 
     print('retrive text')
@@ -85,6 +88,6 @@ if __name__=='__main__':
     for v, index in  zip(vs, ids):
         print('-'*50)
         for j in zip(v, index):
-            print('Q: ',dataset[j[1].item()][0], 'A:', dataset[j[1].item()][1] )#j[0].item()
+            print('Q: ',dataset[j[1].item()][0], 'A:', dataset[j[1].item()][1],j[0].item() )#
 
 

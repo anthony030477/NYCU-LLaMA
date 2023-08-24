@@ -32,40 +32,72 @@ class collect_fn:
         self.drop = drop
         self.only_Q_ratio=only_Q_ratio
         self.tokenizer =RobertaTokenizer.from_pretrained("roberta-base")
+
     def __call__(self, batch):
         '''
         input: question,answer
         return:torch.tensor(token_id) batchxseq_len
         '''
         # bodys,titles=zip(*batch)
-        input_list=[]
+        input_list_a=[]
+        input_list_b=[]
 
         onlyQ=torch.rand(1)<self.only_Q_ratio
         for QA in batch:
-            if type(QA)==tuple or type(QA)==tuple:
+            text=None
+            if type(QA)==tuple or type(QA)==list:
                 question, answer=QA
                 if type(question)==str and type(answer)==str:
                     text='Question: '+question
                     if not onlyQ:
                         text +='Answer: '+answer
-                    input_list.append(text)
             else:
                 text='Question: '+QA
-                input_list.append(text)
 
 
-        output=self.tokenizer (text=input_list,return_tensors="pt",padding=True,truncation=True,max_length=self.max_len)
+            if text is not None:
+                #random mask word
+                n=len(text)
+                rand=torch.randint(10,n,size=[int(n*self.drop)])
+                rand=sorted(rand)
+                rand=[0]+rand
+                texts=''
+                for i in range(len(rand)-1):
+                    texts+=text[rand[i]:rand[i+1]-1]
+                    if i<len(rand)-2:
+                        texts+=self.tokenizer.mask_token
+                    if torch.rand(1)<self.drop:
+                        texts+=self.tokenizer.mask_token
+
+                input_list_a.append(text if torch.rand(1)<0.1 else texts)
+
+
+                n=len(text)
+                rand=torch.randint(10,n,size=[int(n*self.drop)])
+                rand=sorted(rand)
+                rand=[0]+rand
+                texts=''
+                for i in range(len(rand)-1):
+                    texts+=text[rand[i]:rand[i+1]-1]
+                    if i<len(rand)-2:
+                        texts+=self.tokenizer.mask_token
+                    if torch.rand(1)<self.drop:
+                        texts+=self.tokenizer.mask_token
+
+                input_list_b.append(text if torch.rand(1)<0.1 else texts)
+
+
+
+        output_a=self.tokenizer (text=input_list_a,return_tensors="pt",padding=True,truncation=True,max_length=self.max_len)
+        output_b=self.tokenizer (text=input_list_b,return_tensors="pt",padding=True,truncation=True,max_length=self.max_len)
 
 
         # apply random mask token
-        ids_a= output.input_ids.clone()
-        rand=torch.rand(ids_a.shape)
-        ids_a[rand<self.drop] = self.tokenizer.mask_token_id
-        ids_b = output.input_ids.clone()
-        rand = torch.rand(ids_b.shape)
-        ids_b[rand<self.drop] = self.tokenizer.mask_token_id
+        ids_a= output_a.input_ids.clone()
 
-        return ids_a, ids_b, output.attention_mask,input_list
+        ids_b = output_b.input_ids.clone()
+
+        return ids_a, ids_b, output_a.attention_mask, output_b.attention_mask,  output_a, output_b
 
 
 def collect_fn_llama(batch):
