@@ -71,6 +71,7 @@ class Contriever(torch.nn.Module):
         projection = self.projecter(feature)
         prediction = self.predicter(projection)
         return projection, prediction
+    
 if __name__=='__main__':
     m1=SBert()
     
