@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 from transformers import RobertaTokenizer, RobertaModel
 
+from transformers import AutoModel ,AutoTokenizer
+
 
 @torch.no_grad()
 def momentum_update(src:nn.Module, dst:nn.Module, factor=0.01):
@@ -32,8 +34,24 @@ class Roberta(torch.nn.Module):
         prediction = self.predicter(projection)
         return projection, prediction
 
-if __name__=='__main__':
-    m1=Roberta()
-    m2=Roberta()
+class SBert(torch.nn.Module):
+    def __init__(self, out_dim=2048):
+        super(SBert, self).__init__()
+        self.model = AutoModel.from_pretrained("deepset/sentence_bert")
+        self.projecter = nn.Linear(768, out_dim, bias=False)
+        self.predicter = nn.Linear(out_dim, out_dim, bias=False)
 
-    momentum_update(m1,m2)
+
+
+    def forward(self, input_ids,attention_mask):
+        x=self.model(input_ids=input_ids, attention_mask=attention_mask)
+        feature=x.last_hidden_state[:,0,:]
+        del x
+
+        projection = self.projecter(feature)
+        prediction = self.predicter(projection)
+        return projection, prediction
+    
+if __name__=='__main__':
+    m1=SBert()
+    
