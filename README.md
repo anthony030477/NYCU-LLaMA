@@ -6,4 +6,6 @@
 
 NYCU LLaMA is a generative AI to handle the question answering system for National Yang Ming Chiao Tung University.
 
-hahaha
+<div align="center">
+  <img src="./image/train.png" width="500px">
+</div>
