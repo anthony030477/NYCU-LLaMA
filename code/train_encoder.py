@@ -5,50 +5,56 @@ from dataset import trainDataset,collect_fn
 from model import Roberta, momentum_update
 import torch.nn as nn
 import torch.nn.functional as F
+from utils import cos_sim, simCLR_loss, infonNCE_loss
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 mse_loss=nn.MSELoss()
 
 
 
 update_step=1
-
+class memory:
+    def __init__(self, size=2048) -> None:
+        self.size = size
+        self.latents = None
+    def get(self):
+        return self.latents
+    def add(self, latents:torch.Tensor):
+        latents=latents.detach()
+        if self.latents is None:
+            self.latents=latents
+        else:
+            self.latents = torch.cat([latents, self.latents], dim=0)
+            self.latents =  self.latents[:self.size]
 
 def trainer(epoch, model_on:nn.Module, model_off:nn.Module):
     losses = 0
     model_on.train()
     model_off.eval()
     counter=0
-    for ids_a, ids_b, input_masks,_ in (bar:=tqdm(train_dataloader,ncols=0)):
+    for ids_a, ids_b, mask_a,mask_b,text_a,taxt_b in (bar:=tqdm(train_dataloader,ncols=0)):
+
         loss=0
         bs=ids_a.shape[0]
         optimizer.zero_grad()
         counter+=1
         ids_a=ids_a.to(device)
         ids_b=ids_b.to(device)
-        input_masks=input_masks.to(device)
+        mask_a=mask_a.to(device)
+        mask_b=mask_b.to(device)
 
 
-        z_on, q_on = model_on(ids_a,input_masks)
+        z_on, q_on = model_on(ids_a, mask_a)
         with torch.no_grad():
-            z_off, q_off = model_off(ids_b,input_masks)
-        # del z_on, q_off     #delete online latent and offline prediction
+            z_off, q_off = model_off(ids_b, mask_b)
+        bank.add(z_off)
+        loss += infonNCE_loss(z_on, bank.get(), 0.1)
 
-        loss += 2-2*((q_on*z_off).sum(dim=1)/(torch.norm(q_on, dim=1)*torch.norm(z_off, dim=1))).mean()
-        # MSE of online prediction and offline latent
-        # q_on=F.normalize(q_on)
-        # z_off=F.normalize(z_off)
-        # loss = torch.mean(( q_on - z_off )**2)
-
-        z_on, q_on = model_on(ids_b,input_masks)
+        z_on, q_on = model_on(ids_b, mask_b)
         with torch.no_grad():
-            z_off, q_off = model_off(ids_a,input_masks)
-        # del z_on, q_off     #delete online latent and offline prediction
-
-        loss += 2-2*((q_on*z_off).sum(dim=1)/(torch.norm(q_on, dim=1)*torch.norm(z_off, dim=1))).mean()
-        # MSE of online prediction and offline latent
-        # q_on=F.normalize(q_on)
-        # z_off=F.normalize(z_off)
-        # loss += torch.mean(( q_on - z_off )**2)
+            z_off, q_off = model_off(ids_a, mask_a)
+        del q_on
+        bank.add(z_off)
+        loss += infonNCE_loss(z_on, bank.get(), 0.1)
 
 
         loss.backward()
@@ -60,13 +66,13 @@ def trainer(epoch, model_on:nn.Module, model_off:nn.Module):
 
         # calculate similarity of each sample
         with torch.no_grad():
-            sim=(z_on@z_on.T)/(torch.norm(z_on,dim=1)@torch.norm(z_on,dim=1).T)
+            sim=cos_sim(z_on,z_off)
 
         all_sim=0
         for i in range(bs):
             self_sim = sim[i, i]
-            other = torch.cat([sim[i, :i], sim[i,i:]], dim=0).mean()
-            all_sim += self_sim/other
+            other = sim[i].mean()
+            all_sim += self_sim-other
         all_sim/=bs
         # log
         if losses==0:
@@ -79,17 +85,19 @@ def trainer(epoch, model_on:nn.Module, model_off:nn.Module):
 if __name__=='__main__':
     dataset=trainDataset()
 
-    train_dataloader = DataLoader(dataset, batch_size=8, shuffle=True,collate_fn=collect_fn(drop=0.2))
+    train_dataloader = DataLoader(dataset, batch_size=8, shuffle=True,collate_fn=collect_fn(drop=0.2, only_Q_ratio=1), drop_last=True)
     model_on=Roberta()
     model_off=Roberta()
     model_on.to(device)
     model_off.to(device)
 
-    model_on.load_state_dict(torch.load('save/save_099.pt', 'cpu'))
+    # model_on.load_state_dict(torch.load('save/save_080.pt', 'cpu'))
 
     momentum_update(model_on, model_off, 1) #full copy online to offline
-    optimizer = torch.optim.AdamW(model_on.parameters(), lr=5e-5, weight_decay=1e-2)
-    num_epochs=1000
+
+    bank=memory(4096)
+    optimizer = torch.optim.AdamW(model_on.parameters(), lr=1e-5, weight_decay=1e-2)
+    num_epochs=20
     lr_scher=torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.2, patience=10, cooldown=20, min_lr=1e-6)
 
     for i in range(num_epochs):
