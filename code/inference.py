@@ -58,7 +58,6 @@ def featurer(model, dataset):
 
 if __name__=='__main__':
     dataset=trainDataset()
-
     model=Roberta()
     model.load_state_dict(torch.load('save/save.pt'))
     model.to(device)
@@ -72,16 +71,20 @@ if __name__=='__main__':
     feature_text = torch.load('save/feature.pt')
     feature = feature_text['feature'].to(device)
 
+
     for input_ids, input_masks ,text in test_dataloader:
         with torch.no_grad():
             test_feature, _ = model(input_ids.to(device),input_masks.to(device))
 
 
 
-
     sim = cos_sim(test_feature, feature)
     vs, ids = torch.topk(sim, 5, dim=1, largest=True)
-
+    text=feature_text['text']
+    for i,f in zip(text,sim[3]):
+        if type(i)==str and '電子報' in i:
+            print(i, f)
+            pass
 
     print('retrive text')
 

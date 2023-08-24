@@ -25,7 +25,7 @@ def trainDataset(path='data/'):
         Q=dataframe["問題"].tolist()
         A=dataframe["回答內容"].tolist()
         dataset.extend(zip(Q,A))
-    return dataset
+    return list(filter(lambda x:type(x[0])==str and type(x[1])==str,dataset))
 
 
 class collect_fn:
@@ -56,11 +56,10 @@ class collect_fn:
             else:
                 text='Question: '+QA
 
-
             if text is not None:
 
-                input_list_a.append(text if torch.rand(1)<0.1 else self.text_aug(text))
-                input_list_b.append(text if torch.rand(1)<0.1 else self.text_aug(text))
+                input_list_a.append(text if torch.rand(1)>self.drop else self.text_aug(text))
+                input_list_b.append(text if torch.rand(1)>self.drop else self.text_aug(text))
 
 
 
@@ -81,7 +80,7 @@ class collect_fn:
         n=len(text)
         rand=torch.randint(10,n,size=[int(n*self.drop)])
         rand=sorted(rand)
-        rand=[0]+rand +[n]
+        rand=[0]+rand +[n+1]
         texts=''
         for i in range(len(rand)-1):
             texts+=text[rand[i]:rand[i+1]-1]

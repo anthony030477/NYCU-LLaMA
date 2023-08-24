@@ -3,6 +3,8 @@ import torch.nn as nn
 from transformers import RobertaTokenizer, RobertaModel
 
 from transformers import AutoModel ,AutoTokenizer
+from transformers import AutoTokenizer
+
 
 
 @torch.no_grad()
@@ -52,6 +54,23 @@ class SBert(torch.nn.Module):
         prediction = self.predicter(projection)
         return projection, prediction
     
+class Contriever(torch.nn.Module):
+    def __init__(self, out_dim=2048):
+        super(Contriever, self).__init__()
+        self.model = AutoModel.from_pretrained("facebook/contriever")
+        self.projecter = nn.Linear(768, out_dim, bias=False)
+        self.predicter = nn.Linear(out_dim, out_dim, bias=False)
+        tokenizer = AutoTokenizer.from_pretrained("facebook/contriever")
+
+
+    def forward(self, input_ids,attention_mask):
+        x=self.model(input_ids=input_ids, attention_mask=attention_mask)
+        feature=x.last_hidden_state[:,0,:]
+        del x
+
+        projection = self.projecter(feature)
+        prediction = self.predicter(projection)
+        return projection, prediction
 if __name__=='__main__':
     m1=SBert()
     
