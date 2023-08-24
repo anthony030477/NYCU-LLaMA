@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from dataset import trainDataset,collect_fn
-from model import Roberta
+from model import Roberta, SBert
 import numpy as np
 from utils import cos_sim
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -25,7 +25,7 @@ def featurer(model, dataset):
         ids_a=ids_a.to(device)
         input_masks=input_masks.to(device)
 
-        feature,_  = model(ids_a,input_masks)#(bs, d)
+        feature  = model(text)#(bs, d)
         feature_list.append(feature)
         text_list.extend(text)
 
@@ -58,14 +58,13 @@ def featurer(model, dataset):
 
 if __name__=='__main__':
     dataset=trainDataset()
-    model=Roberta()
-    model.load_state_dict(torch.load('save/save.pt'))
+    model=SBert()
     model.to(device)
     model.eval()
     # compute latent and save
     featurer(model, dataset)
 
-    test_text=['要怎麼下載學校的軟體?','課外活動輔導組在哪裡?','請問我要怎麼申請就學貸款','電子報相關問題']
+    test_text=['要怎麼下載學校的軟體?','課外活動輔導組在學校的哪裡?','怎麼申請就學貸款','電子報的問題']
     test_dataloader = DataLoader(test_text, batch_size=100, shuffle=False,collate_fn=collect_fn(drop=0))
 
     feature_text = torch.load('save/feature.pt')
@@ -74,7 +73,7 @@ if __name__=='__main__':
 
     for input_ids, input_masks ,text in test_dataloader:
         with torch.no_grad():
-            test_feature, _ = model(input_ids.to(device),input_masks.to(device))
+            test_feature= model(text)
 
 
 

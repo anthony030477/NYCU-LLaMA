@@ -6,7 +6,7 @@ import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from model import Roberta
+from model import Roberta, SBert
 import numpy as np
 from utils import cos_sim
 from inference import featurer
@@ -78,9 +78,7 @@ class TaiwanLLaMaGPTQ:
 if __name__=='__main__':
     inferencer = TaiwanLLaMaGPTQ("weiren119/Taiwan-LLaMa-v1.0-4bits-GPTQ")
 
-    model=Roberta()
-    load=torch.load('/home/nycuLM/save/save.pt')
-    model.load_state_dict(load, strict=False)
+    model=SBert()
     model.to(device)
     model.eval()
     dataset=trainDataset()
@@ -97,7 +95,7 @@ if __name__=='__main__':
 
         for input_ids,_, input_masks ,text in test_dataloader:
             with torch.no_grad():
-                test_feature, _ = model(input_ids.to(device),input_masks.to(device))
+                test_feature= model(text)
 
         sim = cos_sim(test_feature, feature)
         vs, ids = torch.topk(sim, 5, dim=1, largest=True)

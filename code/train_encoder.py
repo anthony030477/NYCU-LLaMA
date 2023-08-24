@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from dataset import trainDataset,collect_fn
-from model import Roberta, momentum_update
+from model import Roberta, momentum_update,SBert
 import torch.nn as nn
 import torch.nn.functional as F
 from utils import cos_sim, simCLR_loss, infonNCE_loss
@@ -43,16 +43,15 @@ def trainer(epoch, model_on:nn.Module, model_off:nn.Module):
         mask_b=mask_b.to(device)
 
 
-        z_on, q_on = model_on(ids_a, mask_a)
+        z_on = model_on(text_a)
         with torch.no_grad():
-            z_off, q_off = model_off(ids_b, mask_b)
+            z_off = model_off(taxt_b)
         bank.add(z_off)
         loss += infonNCE_loss(z_on, bank.get(), 0.01)
 
-        z_on, q_on = model_on(ids_b, mask_b)
+        z_on = model_on(taxt_b)
         with torch.no_grad():
-            z_off, q_off = model_off(ids_a, mask_a)
-        del q_on
+            z_off = model_off(text_a)
         bank.add(z_off)
         loss += infonNCE_loss(z_on, bank.get(), 0.01)
 
@@ -86,8 +85,8 @@ if __name__=='__main__':
     dataset=trainDataset()
 
     train_dataloader = DataLoader(dataset, batch_size=8, shuffle=True,collate_fn=collect_fn(drop=0.2, only_Q_ratio=0.5), drop_last=True)
-    model_on=Roberta()
-    model_off=Roberta()
+    model_on=SBert()
+    model_off=SBert()
     model_on.to(device)
     model_off.to(device)
 
