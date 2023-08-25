@@ -5,7 +5,7 @@ from transformers import RobertaTokenizer, RobertaModel
 from transformers import AutoModel ,AutoTokenizer
 from transformers import AutoTokenizer
 from sentence_transformers import SentenceTransformer
-
+from transformers import AutoTokenizer, AutoModelForMaskedLM
 
 
 
@@ -50,9 +50,12 @@ class SBert(torch.nn.Module):
         # self.predicter = nn.Linear(out_dim, out_dim, bias=False)
 
 
-
+        
     def forward(self, x):
-
+        
+        # x=self.model[0](x)
+        
+        # x=self.model[1](x)
         x = self.model.encode(x)
         x=torch.from_numpy(x).to(self.model.device)
         # projection = self.projecter(x)
@@ -78,11 +81,13 @@ class Contriever(torch.nn.Module):
         return projection, prediction
 
 if __name__=='__main__':
+    
     model = SBert()
+   
     model.to('cuda')
     x=["要去哪裡搭公車","哈囉"]
     # tokenizer = AutoTokenizer.from_pretrained("deepset/sentence_bert")
     # tokenizer = AutoTokenizer.from_pretrained("uer/chinese_roberta_L-12_H-768")
-    # x=tokenizer(x, return_tensors='pt')
+    # x=tokenizer(x, return_tensors='pt', padding=True ,truncation=True).to('cuda')
     y = model(x)
-    print(y[0].shape)
+    print(y)
