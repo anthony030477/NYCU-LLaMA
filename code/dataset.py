@@ -48,16 +48,16 @@ class collect_fn:
             if type(QA)==tuple or type(QA)==list:
                 question, answer=QA
                 if type(question)==str and type(answer)==str:
-                    text='Question: '+question
+                    text='Q: '+question
                     if not onlyQ:
-                        text +='Answer: '+answer
-            else:
-                text='Question: '+QA
+                        text +='A: '+answer
+            elif type(QA)==str:
+                text=QA
 
             if text is not None:
 
-                input_list_a.append(text if torch.rand(1)>self.drop else self.text_aug(text))
-                input_list_b.append(text if torch.rand(1)>self.drop else self.text_aug(text))
+                input_list_a.append(self.text_aug(text) if torch.rand(1)<self.drop else text)
+                input_list_b.append(self.text_aug(text) if torch.rand(1)<self.drop else text)
 
 
 
