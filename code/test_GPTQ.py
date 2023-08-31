@@ -47,10 +47,10 @@ class TaiwanLLaMaGPTQ:
     def get_prompt(self, message: str, chat_history: list[tuple[str, str]]) -> str:
         texts = [f'{self.system_prompt}']
         if self.external is not None:
-            texts.append('answer base on facts:'+self.external+'###')
-        # for user_input, response in chat_history:
-        #     texts.append('USER: '+user_input.strip())
-        #     texts.append('ASSISTANT: '+response.strip())
+            texts.append('<fact>'+self.external+'<end of fact>###')
+        for user_input, response in chat_history[-3:]:
+            texts.append('USER: '+user_input.strip())
+            texts.append('ASSISTANT: '+response.strip())
         texts.append('USER: '+message.strip())
         texts.append('ASSISTANT: ')
         return (sep).join(texts)
@@ -112,10 +112,10 @@ if __name__=='__main__':
             # inferencer.system_prompt+=f'Q: {dataset[j[1].item()][0] }\nA: {dataset[j[1].item()][1]}\n'
             inferencer.external+=f'###{Q}\n{A}\n'+eos
 
-        inferencer.system_prompt="A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers based on fact. Without any link or phone number. Use 繁體中文 in detail.\n"#You are built by NTU Miulab by Yen-Ting Lin for research purpose.
+        inferencer.system_prompt="A chat between a curious user and an artificial intelligence assistant. The assistant base on fact gives helpful, detailed, and polite answers. Without any link or phone number. Use 繁體中文 in detail.\n"#You are built by NTU Miulab by Yen-Ting Lin for research purpose.
 
         if s != '':
-            # print(inferencer.external)
+            print('-'*60+'\n'+inferencer.external+'\n'+'-'*60)
             print('Assistant: ')
             inferencer.generate(s)
 
