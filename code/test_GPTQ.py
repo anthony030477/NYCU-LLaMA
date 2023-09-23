@@ -37,17 +37,18 @@ class TaiwanLLaMaGPTQ:
             use_safetensors=True,
             device_map="auto",
             use_triton=True,
+            use_cache=True,
             strict=False)
         self.chat_history = []
         self.system_prompt = ''
         self.external=''
-
+        print(self.model)
         self.streamer = TextStreamer(self.tokenizer, skip_prompt=True, skip_special_tokens=True)
         self.thread_streamer = TextIteratorStreamer(self.tokenizer, skip_special_tokens=True)
     def get_prompt(self, message: str, chat_history: list[tuple[str, str]]) -> str:
         texts = [f'{self.system_prompt}']
         if self.external is not None:
-            texts.append('<fact>'+self.external+'<end of fact>###')
+            texts.append(self.external)
         for user_input, response in chat_history[-3:]:
             texts.append('USER: '+user_input.strip())
             texts.append('ASSISTANT: '+response.strip())
@@ -57,7 +58,7 @@ class TaiwanLLaMaGPTQ:
 
     def generate(self, message: str):
         prompt = self.get_prompt(message, self.chat_history)
-        # print('ture input:\n', prompt)
+        print('ture input:\n', prompt)
         tokens = self.tokenizer(prompt, return_tensors='pt').input_ids
         generate_ids = self.model.generate(input_ids=tokens.cuda(), streamer=self.streamer, **self.generate_config)
         output = self.tokenizer.decode(generate_ids[0, len(tokens[0]):-1]).strip()
@@ -91,8 +92,8 @@ if __name__=='__main__':
 
     dataset=trainDataset()
     dataset+=[('陽明交大有校長嗎?','校長是林奇宏')]
-    dataset+=[('陽明交大有校狗嗎?','有很多校狗')]
     dataset+=[('陽明交大校長是誰?','校長是林奇宏')]
+    dataset+=[('陽明交大有校狗嗎?','有很多校狗')]
 
     R = Retriever()
     R.to(device)
@@ -108,11 +109,13 @@ if __name__=='__main__':
         # print('-'*50)
         if len(answer)>0:
             inferencer.external=''
-        for Q, A, sim in answer:
-            # inferencer.system_prompt+=f'Q: {dataset[j[1].item()][0] }\nA: {dataset[j[1].item()][1]}\n'
-            inferencer.external+=f'###{Q}\n{A}\n'+eos
+            texts=[]
+            for Q, A, sim in answer:
+                texts.append('USER: '+Q.strip())
+                texts.append('ASSISTANT: '+A.strip())
+            inferencer.external=(sep).join(texts)
 
-        inferencer.system_prompt="A chat between a curious user and an artificial intelligence assistant. The assistant base on fact gives helpful, detailed, and polite answers. Without any link or phone number. Use 繁體中文 in detail.\n"#You are built by NTU Miulab by Yen-Ting Lin for research purpose.
+        inferencer.system_prompt="A chat between user and an assistant. The assistant base on history gives helpful, detailed, and polite answers. Without any link or phone number. Use 繁體中文\n. Do not repeat user question."#You are built by NTU Miulab by Yen-Ting Lin for research purpose.
 
         if s != '':
             print('-'*60+'\n'+inferencer.external+'\n'+'-'*60)
